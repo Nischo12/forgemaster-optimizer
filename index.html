@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forge Master · Allround Optimizer & PvP</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1120;--panel:#151f33;--muted:#9baac2;--accent:#70e2bb;--border:#30415e;--danger:#ffba8a}*{box-sizing:border-box}body{font:15px/1.5 system-ui,Segoe UI,sans-serif;background:var(--bg);color:#edf3ff;margin:0}main{max-width:1120px;padding:28px 18px 70px;margin:auto}h1{font-size:30px;margin:0}h2{font-size:20px;margin:0 0 10px}h3{font-size:16px;margin:18px 0 8px}p{color:var(--muted);margin:6px 0 16px}.top{margin-bottom:24px}.stack{display:grid;gap:18px}.card{background:var(--panel);padding:20px;border:1px solid var(--border);border-radius:16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}label{display:flex;flex-direction:column;gap:5px;color:#c9d5e8;font-size:13px}input,select,textarea,button{font:inherit;border-radius:9px;border:1px solid #465775;background:#0d1729;color:white;padding:9px;min-width:0}input[type=number]{width:100%}input[type=file]{max-width:100%}textarea{width:100%;min-height:90px}button{cursor:pointer;background:#227e6a;border-color:#31aa8f;font-weight:700;padding:11px 16px}button:hover{filter:brightness(1.1)}button.secondary{background:#25344e;border-color:#4b617e}button:disabled{opacity:.6;cursor:wait}.muted{color:var(--muted)}.warning{color:var(--danger)}.ok{color:var(--accent)}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:8px;text-align:left;border-bottom:1px solid var(--border)}td input{width:100%;padding:7px}th{color:#a9bed8;font-weight:600}small{color:var(--muted)}.metric{background:#101a2e;border:1px solid var(--border);padding:14px;border-radius:10px}.metric strong{display:block;font-size:23px;color:var(--accent)}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1425;padding:14px;border-radius:10px;font-size:12px;max-height:240px;overflow:auto}.items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.items>div{padding:9px;background:#101a2e;border:1px solid #33445d;border-radius:8px;font-size:13px}.pill{display:inline-block;padding:3px 9px;background:#23374e;border-radius:30px;color:#b8f0db;font-size:12px}.hidden{display:none}.quality-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.quality-fields label{font-size:12px}.equipment-entry{background:#0f1a2d;border:1px solid var(--border);border-radius:12px;padding:13px;margin:12px 0}.equipment-entry .grid{grid-template-columns:repeat(4,minmax(0,1fr))}.equipment-entry .item-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}.equipment-entry pre{max-height:90px}.equipment-list:empty{display:none}@media(max-width:750px){.equipment-entry .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.scenario{border:1px solid var(--border);border-radius:12px;padding:16px;margin:18px 0;background:#0f1a2d}.scenario h3:first-child{font-size:19px;color:var(--accent);margin-top:0}@media(max-width:750px){.grid,.items{grid-template-columns:1fr}.quality-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:14px}th,td{padding:5px}}
+</style></head><body><main><div class="top"><h1>⚒️ Forge Master Optimizer</h1><p>Find one long-term fairy build · import an opponent screenshot · estimate PvP win rate</p><span class="pill">v1.6 · Lifesteal-aware PvP optimization · Experimental model</span></div>
+<div class="stack">
+<section class="card"><h2>1 · Import your character</h2><div class="grid"><label >Name<input id="own-name" value="" placeholder="Your name"></label><label>Weapon type<select id="weapon"><option>Melee</option><option>Range</option></select></label><label >Fairy<select id="fairy"><option>Lora</option><option>Tira</option><option>Mira</option></select></label><label>Fairy level (1–20)<input id="fairy-level" type="number" min="1" max="20" value="5"></label></div><h3>Character stats screenshot</h3><div class="row"><input type="file" accept="image/*" id="own-file" multiple><button class="secondary" id="own-ocr">Recognize screenshot</button></div><small>Select multiple screenshots if necessary. OCR uses an online-loaded text-recognition library. Review extracted values before continuing.</small><div id="own-ocr-box" class="hidden"><h3>Extracted OCR text</h3><pre id="own-raw"></pre></div><h3>Review / correct stats</h3><p><strong>Total Health and Total Damage:</strong> these are raw numbers (not the Health % / Damage % bonuses). If OCR misses or misreads them, type the exact displayed values manually. Supported examples: 83.4M, 83,400,000.</p><div id="own-fields"></div><p class="warning">The “From current Forge slots” column matters for accurate PvP. A character stats screenshot alone may not show which bonuses come from your equipped slots. All fields start at 0; verify or enter missing values.</p><div class="row"><button id="save-own" class="secondary">Calculate base stats</button><span id="own-status" class="muted"></span></div><div id="own-bases" class="grid"></div></section>
+<section class="card"><h2>2 · Generate fairy-focused builds</h2><p>Compare a perfect-roll (100%) build with a realistic 80% roll build and your own average roll-quality estimates. Your current equipment and character values do not affect these recommendations. <b>Lifesteal builds are explicitly checked in PvP simulations</b>, including against sustained-damage opponents. No minimum Lifesteal slots are forced.</p><h3>Custom roll quality (%) by substat</h3><p>Adjust each stat to reflect typical rolls. Example: a 2% Critical Chance roll is 16.7% quality (2 ÷ 12), while a 70% Critical Damage roll is 87.5% quality (70 ÷ 80). Each input is the assumed average quality across slots of that stat.</p><div id="quality-fields" class="quality-fields"></div><div class="row"><button id="optimize">Generate all-round build</button><span id="opt-status" class="muted"></span></div><div id="opt-result"></div></section>
+<section class="card" id="equipment-section">
+<h2>3 · Equipment scanner & upgrade priorities</h2>
+<p>Upload multiple screenshots of equipped gear, pets or mounts. Each image represents one item detail screen. Review its two substats and exact rolled values, then compare your scanned equipment with the generated fairy build. This helps you decide what to reroll first.</p>
+<div class="row"><label>Equipment screenshots (multiple)<input id="item-files" type="file" accept="image/*" multiple></label><button id="scan-items" class="secondary">Scan equipment screenshots</button><span id="item-status" class="muted"></span></div>
+<small>Image text recognition is experimental. For each item, check the item name, category, stats and exact percentages. You can also add an item manually. Regular item Damage/Health (e.g. 442k Damage, 10.9m Health) are NOT Forge substats. Mounts use the same two Forge substat slots as gear and pets. Item base Health and Damage are not included in the priority score.</small>
+<div class="row" style="margin-top:12px"><button class="secondary" id="add-item">+ Add item manually</button><button class="secondary" id="clear-items">Clear equipment</button><label>Target build<select id="equipment-build"><option value="realistic" selected>Realistic rolls (80%)</option><option value="perfect">Perfect rolls (100%)</option><option value="custom">Custom roll quality</option></select></label><label>Target roll quality<select id="item-target-quality"><option value="80">80% practical target</option><option value="100">100% perfect target</option><option value="custom">Use chosen target build's quality</option></select></label></div>
+<div id="equipment-list" class="equipment-list"></div>
+<div class="row" style="margin-top:14px"><button id="analyze-items">Which items should I replace first?</button><span id="item-analysis-status" class="muted"></span></div>
+<p class="muted">The equipment target build is separate from the PvP build selector. Build recommendations exist only for the current page session; regenerate them after reloading the page.</p><div id="equipment-recommendation"></div>
+</section>
+<section class="card"><h2>4 · Import opponent & simulate PvP</h2><p>Upload an opponent screenshot, verify the values, then simulate the recommended build. Opponents use their own stats. When Range fights Melee, the ranged fighter attacks during an experimental 4-second approach. The PvP results now show average normal attacks, extra Double Chance hits, blocked hits, and pre-contact damage.</p><div class="grid"><label>Opponent name<input id="enemy-name" value="" placeholder="Opponent name"></label><label>Opponent fairy<select id="enemy-fairy"><option value="">Unknown / none</option><option>Tira</option><option>Mira</option><option>Lora</option></select></label><label>Opponent fairy level<input id="enemy-fairy-level" type="number" min="1" max="20" value="5"></label><label>Opponent weapon<select id="enemy-weapon"><option>Melee</option><option>Range</option></select></label></div><h3>Opponent stats screenshot</h3><div class="row"><input type="file" accept="image/*" id="enemy-file" multiple><button class="secondary" id="enemy-ocr">Recognize screenshot</button></div><small>You can select multiple screenshots. If no values appear, check the extracted OCR text below.</small><div id="enemy-ocr-box" class="hidden"><h3>Extracted OCR text</h3><pre id="enemy-raw"></pre></div><h3>Review / correct opponent stats</h3><p><strong>Total Health and Total Damage:</strong> please double-check these values after OCR.</p><div id="enemy-fields"></div><p class="warning">Without the opponent’s slot details, we use their displayed stats as their current setup. Confirm the values before simulating.</p><div class="row"><label>Build to test<select id="pvp-build"><option value="current" selected>My current equipped build</option><option value="realistic">80% rolls (realistic)</option><option value="perfect">100% rolls (perfect)</option><option value="custom">Custom roll quality</option></select></label><span id="pvp-build-note" class="muted"></span></div><p class="muted">PvP compares your current equipped stats with all three recommended fairy builds against the same opponent. Select a build above to highlight it. For a fair optimized-build comparison, enter each bonus contributed by your current Forge slots in section 1.</p><div class="row"><button id="pvp">Compare builds · 1,000 fights each</button><span id="pvp-status" class="muted"></span></div><div id="pvp-result"></div></section>
+<section class="card"><h2>Model limitations</h2><p>Lifesteal healing is applied to damage actually dealt and capped at missing HP per attack. Build selection is based on simulated PvP results against synthetic opponents, but this is not validated against actual game outcomes. 24 total slots across 12 items, with two different substats per item and at most 12 of any single substat. Roll values are configurable (100%, 80%, or per-substat custom quality); exact per-item roll variation is approximated. Fairy effects, Double Chance timing and the 4-second Range vs Melee approach are modeled assumptions, not verified game rules. Inconclusive 10-second fights count as DRAW. Never farm for hours based on an unverified model.</p></section>
+</div></main>
+<script>
+// Forge Master Optimizer — English Edition
+// Browser JavaScript. Open the accompanying HTML page; this file requires the DOM.
+
+'use strict';
+const STAT_FIELDS = [
+ ['leben','Total Health','abs'],['schaden','Total Damage','abs'],
+ ['Health','Health','pct'],['Damage','Damage','pct'],['Melee Damage','Melee Damage','pct'],['Range Damage','Range Damage','pct'],['Attack Speed','Attack Speed','pct'],['Critical Chance','Critical Chance','pct'],['Critical Damage','Critical Damage','pct'],['Block Chance','Block Chance','pct'],['Lifesteal','Lifesteal','pct'],['Double Chance','Double Chance','pct'],['Skill Cooldown','Skill Cooldown','pct'],['Health Regen','Health Regen','pct'],['Skill Damage','Skill Damage','pct']
+];
+const ROLLS = {'Melee Damage':50,'Attack Speed':40,'Critical Damage':80,'Critical Chance':12,'Block Chance':5,'Health Regen':4,'Lifesteal':20,'Damage':15,'Double Chance':20,'Range Damage':15,'Skill Damage':30,'Skill Cooldown':-7,'Health':15};
+const STATS=Object.keys(ROLLS);
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:2});
+const number=(s)=>{if(s===null||s===undefined||String(s).trim()==='')return null;let t=String(s).replace(/\s/g,'').replace(/%/g,'').replace(/[^\d.,+\-]/g,'');if(!t)return null;if(t.includes(',')&&t.includes('.'))t=t.lastIndexOf(',')>t.lastIndexOf('.')?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');else if(t.includes(','))t=t.replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');const n=Number(t);return Number.isFinite(n)?n:null};
+function buildFields(prefix){let rows=STAT_FIELDS.map(([key,label,kind])=>`<tr><td>${label}${kind==='pct'?' (%)':''}</td><td><input data-field="${key}" data-kind="display" placeholder="${kind==='abs'?'e.g. 83.4M':'e.g. 34.5'}"></td><td>${kind==='abs'?'—':`<input data-field="${key}" data-kind="forge" placeholder="0">`}</td></tr>`).join('');$(prefix+'-fields').innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>Stat</th><th>Displayed value</th><th>From current Forge slots</th></tr></thead><tbody>${rows}</tbody></table></div>`}
+function getField(prefix,key,kind){return $(prefix+'-fields').querySelector(`[data-field="${key}"][data-kind="${kind}"]`)}
+function initialize(){buildFields('own');buildFields('enemy');for(const prefix of ['own','enemy']){for(const [key,,kind] of STAT_FIELDS){getField(prefix,key,'display').value='0';if(kind==='pct')getField(prefix,key,'forge').value='0'}}}
+function value(prefix,key,kind){const elem=getField(prefix,key,kind);if(!elem)return null;const v=elem.value.trim();if(!v)return null;return kind==='display'&&(key==='leben'||key==='schaden')?parseAmount(v):number(v)}
+function makeProfile(prefix){const own=prefix==='own',shown={},forge={},fixed={},unknown=[];for(const [key,,kind] of STAT_FIELDS){const d=value(prefix,key,'display');if(kind==='abs'){shown[key]=d;continue}shown[key]=d??0;const f=value(prefix,key,'forge');if(f===null){unknown.push(key);forge[key]=0}else forge[key]=f;fixed[key]=shown[key]-forge[key]}
+ if(!(shown.leben>0)||!(shown.schaden>0))throw Error('Total Health and Total Damage must be greater than zero to simulate PvP. Upload a screenshot or enter them manually.');
+ // Rückrechnung unter multiplikativer Damage/Melee- und additiver Bonus-Annahme pro Statgruppe.
+ const hpFactor=1+shown.Health/100;const damageFactor=(1+shown.Damage/100)*(1+shown[$(own?'weapon':'enemy-weapon').value==='Range'?'Range Damage':'Melee Damage']/100);
+ if(hpFactor<=0||damageFactor<=0)throw Error('Invalid Health or Damage bonus multiplier.');
+ const level=Number($(own?'fairy-level':'enemy-fairy-level').value);if(!Number.isInteger(level)||level<1||level>20)throw Error('Fairy level must be between 1 and 20.');
+ return {name:$(own?'own-name':'enemy-name').value||'Character',fairy:$(own?'fairy':'enemy-fairy').value,level,weapon:$(own?'weapon':'enemy-weapon').value,shown,forge,fixed,unknown,baseHP:shown.leben/hpFactor,baseDmg:shown.schaden/damageFactor};}
+function showBases(){try{const p=makeProfile('own');$('own-bases').innerHTML=`<div class="metric"><small>Estimated base HP</small><strong>${fmt(p.baseHP)}</strong></div><div class="metric"><small>Estimated base hit (model)</small><strong>${fmt(p.baseDmg)}</strong></div>`;$('own-status').textContent=p.unknown.length?`${p.unknown.length} unverified Forge contributions; estimates only.`:'Character profile ready.'}catch(e){$('own-status').textContent=e.message}}
+const aliases=[['Critical Chance',/critical\s*chance|crit\s*chance|krit(?:ische)?\s*chance/i],['Critical Damage',/critical\s*damage|crit\s*damage|krit(?:ischer)?\s*schaden/i],['Melee Damage',/melee\s*damage|nahkampf(?:schaden)?/i],['Range Damage',/range(?:d)?\s*damage|fernkampf(?:schaden)?/i],['Double Chance',/double\s*chance|doppel(?:treffer|chance)/i],['Attack Speed',/attack\s*speed|angriffsgeschwindigkeit/i],['Block Chance',/block\s*chance|blockchance/i],['Skill Cooldown',/skill\s*cooldown|abklingzeit/i],['Skill Damage',/skill\s*damage|fertigkeitsschaden/i],['Health Regen',/health\s*regen|lebensregeneration/i],['Lifesteal',/life\s*steal|lifesteal|lebensraub/i],['Health',/\bhealth\b|\bleben\s*%|\bhp\s*%/i],['Damage',/^(?:total\s*)?damage\b|^schaden\s*%/i]];
+// Reads localized numbers, including 83,4 Mio., 83.4M, 83 400 000 and 34,5%.
+function parseAmount(raw){
+ const match=String(raw).replace(/\u00a0/g,' ').match(/[-+−]?\s*\d[\d.,\s]*\s*(?:milliarden|millionen|million|mio\.?|mrd\.?|mil\.?|[kKmMbB])?/i);
+ if(!match)return null;
+ let part=match[0].replace(/−/g,'-').trim();
+ const u=part.match(/(milliarden|millionen|million|mio\.?|mrd\.?|mil\.?|[kKmMbB])\s*$/i);
+ let unit=u?u[1].toLowerCase().replace(/\./g,''):'';
+ if(u)part=part.slice(0,u.index);
+ part=part.replace(/\s/g,'');
+ if(part.includes(',')&&part.includes('.'))part=part.lastIndexOf(',')>part.lastIndexOf('.')?part.replace(/\./g,'').replace(',','.'):part.replace(/,/g,'');
+ else if(part.includes(','))part=/^[-+]?\d{1,3}(,\d{3})+$/.test(part)?part.replace(/,/g,''):part.replace(',','.');
+ else if(/^[-+]?\d{1,3}(\.\d{3})+$/.test(part))part=part.replace(/\./g,'');
+ const n=Number(part);if(!Number.isFinite(n))return null;
+ return n*(['m','mio','mil','million','millionen'].includes(unit)?1e6:['b','mrd','milliarden'].includes(unit)?1e9:unit==='k'?1e3:1);
+}
+const OCR_ALIASES=[
+ ['Critical Chance',/\b(?:critical|crit)\s*chance\b|\bcrit\.?\s*rate\b|krit(?:ische)?\s*(?:chance|trefferchance)/i],
+ ['Critical Damage',/\b(?:critical|crit)\s*(?:damage|dmg)\b|krit(?:ischer)?\s*schaden/i],
+ ['Melee Damage',/\bmelee\s*(?:damage|dmg)\b|nahkampfschaden/i],
+ ['Range Damage',/\brange(?:d)?\s*(?:damage|dmg)\b|fernkampfschaden/i],
+ ['Double Chance',/\bdouble\s*chance\b|doppeltreffer(?:chance)?/i],
+ ['Attack Speed',/\battack\s*speed\b|angriffsgeschwindigkeit/i],
+ ['Block Chance',/\bblock\s*chance\b|blockchance/i],
+ ['Skill Cooldown',/\bskill\s*cooldown\b|abklingzeit/i],
+ ['Skill Damage',/\bskill\s*damage\b|fertigkeitsschaden/i],
+ ['Health Regen',/\bhealth\s*regen(?:eration)?\b|lebensregeneration/i],
+ ['Lifesteal',/\blife\s*steal\b|\blifesteal\b|lebensraub/i],
+ ['Health',/\bhealth\b|\bgesundheit\b|\bleben\b/i],
+ ['Damage',/\bdamage\b|\bschaden\b/i]
+];
+function detectStats(raw){
+ const lines=String(raw).replace(/[−–]/g,'-').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ const result={};
+ const cleaned=lines.map(x=>x.replace(/[|¦]/g,' ').replace(/\s+/g,' ').trim());
+ const findValue=(str,percent)=>{
+   let matches=[...str.matchAll(/[-+]?\s*\d[\d.,\s]*\s*(?:milliarden|millionen|million|mio\.?|mrd\.?|mil\.?|[kKmMbB])?\s*%?/gi)];
+   for(const m of matches){
+     let token=m[0].trim();if(!token||!/\d/.test(token))continue;
+     if(percent && !token.includes('%') && /mio|mil|mrd|million|milliard/i.test(token))continue;
+     const val=parseAmount(token);
+     if(val!==null && (!percent||Math.abs(val)<=10000))return val;
+   }
+   return null;
+ };
+ for(let i=0;i<cleaned.length;i++){
+   const line=cleaned[i];
+   // Total HP/damage are distinct from the Health/Damage percentage bonuses.
+   for(const [key,re] of [['leben',/(?:\btotal\s*(?:health|hp)\b|\b(?:total|gesamt)[- ]?leben\b|\bgesamt\s*hp\b|\btotal\s*hp\b)/i],['schaden',/(?:\btotal\s*(?:damage|dmg)\b|\bgesamt[- ]?schaden\b)/i]]){
+     const match=re.exec(line);if(!match)continue;
+     const remainder=(line.slice(match.index+match[0].length)+' '+line.slice(0,match.index)).trim();
+     let v=findValue(remainder,false);
+     if(v===null && i+1<cleaned.length)v=findValue(cleaned[i+1],false);
+     if(v!==null&&v>1000)result[key]=v;
+   }
+   // Some screenshots label totals only as "Health" and "Damage".
+   for(const [key,re] of [['leben',/^\s*(?:health|leben|hp)\b/i],['schaden',/^\s*(?:damage|schaden|dmg)\b/i]]){
+     if(result[key]!==undefined||!re.test(line))continue;
+     const candidate=line.replace(re,'').trim();
+     if(candidate.includes('%'))continue;
+     let v=findValue(candidate,false);
+     if(v===null&&i+1<cleaned.length&&!/%/.test(cleaned[i+1]))v=findValue(cleaned[i+1],false);
+     if(v!==null&&v>1000)result[key]=v;
+   }
+   for(const [key,re] of OCR_ALIASES){
+     if(key==='Damage' && /\b(?:melee|range|ranged|critical|crit|skill)\s*(?:damage|dmg)\b|\b(?:total|gesamt)\s*(?:damage|schaden)\b/i.test(line))continue;
+     if(key==='Health' && /\b(?:total|gesamt)\s*(?:health|hp|leben)\b|\bhealth\s*regen/i.test(line))continue;
+     const match=re.exec(line);if(!match)continue;
+     const left=line.slice(0,match.index),right=line.slice(match.index+match[0].length);
+     // Do not confuse raw totals with percentage bonuses.
+     let segment=right+' '+left;
+     let val=null;
+     if(segment.includes('%'))val=findValue(segment,true);
+     else if(i+1<cleaned.length&&/^[-+]?\s*\d[\d.,\s]*\s*%/.test(cleaned[i+1]))val=findValue(cleaned[i+1],true);
+     else if(i>0&&/^[-+]?\s*\d[\d.,\s]*\s*%/.test(cleaned[i-1]))val=findValue(cleaned[i-1],true);
+     if(val!==null)result[key]=val;
+   }
+ }
+ return result;
+}
+// Dedicated extraction for TOTAL Health / Damage. Percentage bonuses must never be used as totals.
+function extractTotalStats(raw){
+ const lines=String(raw).replace(/[−–]/g,'-').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ const result={},flags=[];
+ const labels={
+  leben: /\b(?:total\s*(?:health|hp)|(?:total|gesamt)\s*leben|gesamt\s*hp|health\s*total)\b/i,
+  schaden: /\b(?:total\s*(?:damage|dmg)|gesamt\s*schaden|damage\s*total)\b/i
+ };
+ const isOtherStat=(t)=>/\b(?:chance|speed|critical|crit|melee|range|skill|block|lifesteal|double|regen|cooldown)\b/i.test(t);
+ const nums=(t)=>[...t.matchAll(/[-+−]?\s*\d[\d., ]*\s*(?:milliarden|millionen|million|mio\.?|mrd\.?|mil\.?|[kKmMbB])?\s*%?/gi)].map(m=>m[0].trim()).filter(Boolean);
+ const eligible=(token)=>{if(token.includes('%'))return null;const n=parseAmount(token);return Number.isFinite(n)&&n>=1000?n:null};
+ for(const key of ['leben','schaden']){
+  const found=[];
+  for(let i=0;i<lines.length;i++){
+   const match=labels[key].exec(lines[i]);
+   if(!match)continue;
+   const same=lines[i].slice(0,match.index)+' '+lines[i].slice(match.index+match[0].length);
+   const candidates=[{text:same,score:3}];
+   // Prefer the line immediately below the label. Only use the line above if below has no numeric value.
+   const below=lines[i+1];const above=lines[i-1];
+   const isStandaloneNumber=t=>t && /^[+\-−]?\s*\d[\d., ]*\s*(?:milliarden|millionen|million|mio\.?|mrd\.?|mil\.?|[kKmMbB])?\s*$/i.test(t);
+   if(isStandaloneNumber(below))candidates.push({text:below,score:1});
+   else if(isStandaloneNumber(above))candidates.push({text:above,score:1});
+   for(const item of candidates){if(item.text.includes('%'))continue;for(const token of nums(item.text)){const n=eligible(token);if(n!==null)found.push({value:n,score:item.score,line:i+1})}}
+  }
+  found.sort((a,b)=>b.score-a.score);
+  if(found.length){const top=found.filter(x=>x.score===found[0].score);if(top.some(x=>Math.abs(x.value-top[0].value)>Math.max(1,top[0].value*.02))){flags.push(`Conflicting ${key==='leben'?'Total Health':'Total Damage'} readings — enter manually.`)}else result[key]=top[0].value}
+  else flags.push(`${key==='leben'?'Total Health':'Total Damage'} not confidently recognized — enter manually.`);
+ }
+ return {result,flags};
+}
+function detectStatsSafe(raw){
+ const detected=detectStats(raw);
+ // Never trust generic Health/Damage matching for total values.
+ delete detected.leben;delete detected.schaden;
+ const totals=extractTotalStats(raw);
+ Object.assign(detected,totals.result);
+ return {detected,warnings:totals.flags};
+}
+async function loadOcrLibrary(){
+ if(window.Tesseract)return;
+ const providers=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
+ for(const src of providers){
+  try{
+   await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>reject(new Error('CDN unavailable'));document.head.appendChild(script)});
+   if(window.Tesseract)return;
+  }catch(_error){}
+ }
+ throw Error('OCR could not load. Check your internet connection or browser extensions blocking the OCR library.');
+}
+async function prepareImage(file){
+ // Normalize mobile uploads and enlarge small screenshots to aid OCR.
+ try{
+  const bitmap=await createImageBitmap(file);
+  const scale=Math.min(3,Math.max(1,1800/bitmap.width));
+  const c=document.createElement('canvas');c.width=Math.round(bitmap.width*scale);c.height=Math.round(bitmap.height*scale);
+  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(bitmap,0,0,c.width,c.height);
+  bitmap.close();return c;
+ }catch(_){return file}
+}
+async function doOcr(prefix){
+ const input=$(prefix+'-file');if(!input.files?.length){alert('Please select screenshot(s) first.');return}
+ const button=$(prefix+'-ocr'),status=$(prefix==='own'?'own-status':'pvp-status');
+ button.disabled=true;button.textContent='Reading images…';
+ const box=$(prefix+'-ocr-box'),pre=$(prefix+'-raw');box.classList.remove('hidden');pre.textContent='Starting OCR…';
+ try{
+  status.textContent='Loading text recognition…';await loadOcrLibrary();
+  const combined={},warnings=[],parts=[];
+  for(let i=0;i<input.files.length;i++){
+   const file=input.files[i];status.textContent=`Recognizing screenshot ${i+1} / ${input.files.length}…`;
+   const recognized=await Tesseract.recognize(await prepareImage(file),'eng');
+   const raw=recognized?.data?.text||'';
+   parts.push(`--- Screenshot ${i+1}: ${file.name} ---\n${raw||'(No text recognized)'}`);
+   const result=detectStatsSafe(raw);
+   // Later images can fill blanks, but do not silently overwrite an already detected value.
+   for(const [key,val] of Object.entries(result.detected))if(!(key in combined))combined[key]=val;
+   warnings.push(...result.warnings.map(w=>`${file.name}: ${w}`));
+  }
+  pre.textContent=parts.join('\n\n');
+  for(const [key,val] of Object.entries(combined)){const field=getField(prefix,key,'display');if(field)field.value=String(Number(val.toFixed(4)))}
+  const count=Object.keys(combined).length;
+  status.textContent=count?`${count} distinct values detected from ${input.files.length} image(s). Please verify.`:'No recognized stats: inspect OCR text and enter manually.';
+  if(warnings.length)pre.textContent+='\n\n--- Recognition warnings ---\n'+warnings.join('\n');
+ }catch(e){pre.textContent+='\nOCR failed: '+e.message;status.textContent='OCR error — see extracted text.';console.error(e)}
+ finally{button.disabled=false;button.textContent='Recognize screenshots'}
+}
+const zeroBuild=()=>Object.fromEntries(STATS.map(s=>[s,0]));
+// Roll quality: 100 = perfect roll, 80 = 80% of the maximum roll.
+// A per-stat map allows different qualities: 2% CC = 2/12*100 = 16.67%,
+// while 70% Critical Damage = 70/80*100 = 87.5%.
+function statQuality(quality,name){
+ const q=typeof quality==='number'?quality:(quality?.[name]??100);
+ return Math.max(0,Math.min(100,Number(q)||0))/100;
+}
+function renderQualityInputs(){
+ $('quality-fields').innerHTML=STATS.map(name=>`<label>${name}<input type="number" min="0" max="100" step="0.1" value="80" data-quality="${name}"></label>`).join('');
+}
+function getCustomQuality(){
+ const result={};
+ for(const input of $('quality-fields').querySelectorAll('[data-quality]')){
+  const q=Number(input.value);
+  if(!Number.isFinite(q)||q<0||q>100)throw Error('Roll quality must be between 0 and 100%.');
+  result[input.dataset.quality]=q;
+ }
+ return result;
+}
+function describeRoll(name,quality){return fmt(ROLLS[name]*statQuality(quality,name))+'%'}
+function attackInterval(spd){for(const [min,val] of [[400.001,.4],[275.001,.5],[200.001,.6],[150.001,.7],[114.287,.8],[87.501,.9],[66.668,1],[50.001,1.1],[36.365,1.2],[25.001,1.3],[15.386,1.4],[7.144,1.5],[.001,1.6]])if(spd>=min)return val;return 1.7}
+function values(profile,build,quality=100){const bonus=(name)=>(profile.fixed[name]||0)+(build[name]||0)*ROLLS[name]*statQuality(quality,name);const hp=profile.baseHP*(1+bonus('Health')/100);let hit=profile.baseDmg*(1+bonus('Damage')/100)*(1+bonus(profile.weapon==='Range'?'Range Damage':'Melee Damage')/100);if(profile.fairy==='Tira')hit*=1+(bonus('Health')/10)*(5+profile.level*.5)/100;const cooldown=Math.abs(bonus('Skill Cooldown'));return {hp,hit,crit:Math.max(0,Math.min(1,bonus('Critical Chance')/100)),critFactor:Math.max(1,1+bonus('Critical Damage')/100),block:Math.max(0,Math.min(1,bonus('Block Chance')/100)),steal:Math.max(0,bonus('Lifesteal')/100),dbl:Math.max(0,Math.min(1,bonus('Double Chance')/100)),interval:attackInterval(bonus('Attack Speed')),mira:profile.fairy==='Mira'?Math.min(.7,cooldown/4*(4+profile.level*.5)/100):0,fairy:profile.fairy,level:profile.level,weapon:profile.weapon}}
+function random(seed){let a=seed>>>0;return ()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+function oneAttack(a,d,n,rng){
+ const count=1+(rng()<a.dbl?1:0);
+ let amount=0,blocked=0;
+ for(let i=0;i<count;i++){
+  if(rng()<d.block){blocked++;continue}
+  let hit=a.hit;
+  if(rng()<a.crit)hit*=a.critFactor*(1-d.mira);
+  amount+=hit;
+ }
+ if(a.fairy==='Lora'&&n%5===0)amount*=1+(20+a.level*10)/100;
+ return {damage:amount,heal:amount*a.steal,doubled:count===2,blocked,landed:count-blocked};
+}
+// Experimental approach model, calibrated provisionally from recorded matches.
+// Range attacks are timed by Attack Speed; Double Chance adds a hit to an attack,
+// not another normal attack. Skill damage is not modeled or counted here.
+const RANGE_APPROACH_SECONDS = 4.0;
+function fight(p,e,seed,withDiagnostics=false){
+ const rng=random(seed);
+ let hpP=p.hp,hpE=e.hp;
+ let tP=p.interval,tE=e.interval,nP=0,nE=0;
+ const mixedWeapons=p.weapon!==e.weapon;
+ if(mixedWeapons){
+  if(p.weapon==='Melee')tP=Math.max(tP,RANGE_APPROACH_SECONDS);
+  if(e.weapon==='Melee')tE=Math.max(tE,RANGE_APPROACH_SECONDS);
+ }
+ // Count only ranged attacks before the melee fighter's first *possible* attack.
+ const firstMeleeAttack=mixedWeapons?(p.weapon==='Melee'?tP:tE):0;
+ const approach={normal:0,double:0,blocked:0,landed:0,damage:0};
+ const limit=10;
+ for(let step=0;step<160;step++){
+  const t=Math.min(tP,tE);
+  if(t>limit||hpP<=0||hpE<=0)break;
+  const playerTurn=tP<=tE;
+  const a=playerTurn?oneAttack(p,e,++nP,rng):oneAttack(e,p,++nE,rng);
+  const attacker=playerTurn?p:e;
+  if(mixedWeapons&&attacker.weapon==='Range'&&t<firstMeleeAttack-1e-8){
+   approach.normal++;
+   approach.double+=Number(a.doubled);
+   approach.blocked+=a.blocked;
+   approach.landed+=a.landed;
+   approach.damage+=a.damage;
+  }
+  if(playerTurn){
+   hpE-=a.damage;
+   hpP=Math.min(p.hp,hpP+a.heal);
+   tP+=p.interval+(a.doubled?.1:0);
+  }else{
+   hpP-=a.damage;
+   hpE=Math.min(e.hp,hpE+a.heal);
+   tE+=e.interval+(a.doubled?.1:0);
+  }
+ }
+ let outcome='DRAW';
+ if(hpE<=0&&hpP>0)outcome='WIN';
+ else if(hpP<=0&&hpE>0)outcome='LOSE';
+ if(!withDiagnostics)return outcome;
+ return {outcome,approach,firstMeleeAttack,mixedWeapons};
+}
+function winrate(profile,build,enemy,enemyBuild,n=100,seed=71,diagnostics=false,quality=100){
+ const p=values(profile,build,quality),e=values(enemy,enemyBuild);
+ const outcomes={WIN:0,LOSE:0,DRAW:0};
+ const approaches=[];
+ for(let i=0;i<n;i++){
+  const result=fight(p,e,seed+i*7919,diagnostics);
+  if(diagnostics){outcomes[result.outcome]++;if(result.mixedWeapons)approaches.push(result.approach)}
+  else outcomes[result]++;
+ }
+ const answer={win:outcomes.WIN/n*100,lose:outcomes.LOSE/n*100,draw:outcomes.DRAW/n*100,count:n};
+ if(diagnostics&&approaches.length){
+  const average=key=>approaches.reduce((sum,v)=>sum+v[key],0)/approaches.length;
+  answer.approach={seconds:RANGE_APPROACH_SECONDS,normal:average('normal'),double:average('double'),blocked:average('blocked'),landed:average('landed'),damage:average('damage'),rangedFighter:profile.weapon==='Range'?'player':'opponent'};
+ }
+ return answer;
+}
+// Fairy-focused optimization never requires or uses the user's current equipped stats.
+function makeOptimizationProfile(){
+ const level=Number($('fairy-level').value);
+ if(!Number.isInteger(level)||level<1||level>20)throw Error('Fairy level must be 1–20.');
+ return {name:'Reference fighter',fairy:$('fairy').value,level,weapon:$('weapon').value,
+  baseHP:100000000,baseDmg:10000000,shown:{},forge:{},fixed:{},unknown:[]};
+}
+function profilesForAllround(own){
+ const base={...own,shown:{...own.shown},fixed:{...own.fixed},forge:{...own.forge},fairy:null,level:5};
+ const make=(name,updates,weapon=own.weapon)=>({name,profile:{...base,weapon,fixed:{...base.fixed,...updates}}});
+ return [
+  make('Balanced',{}),
+  make('Critical opponent',{'Critical Chance':80,'Critical Damage':180}),
+  make('Tank/Block',{'Health':100,'Block Chance':25,'Lifesteal':30}),
+  make('High sustained damage',{'Damage':100,'Attack Speed':160,'Health':50}),
+  make('Long duel / Lifesteal',{'Health':180,'Lifesteal':60,'Damage':50}),
+  make(own.weapon==='Melee'?'Ranged opponent':'Melee opponent',{},own.weapon==='Melee'?'Range':'Melee')
+ ];
+}
+// Fast screening only. Real fight simulation is used to choose the final build.
+// Healing only matters while alive and while missing HP. Do not reward theoretical
+// lifesteal beyond the damage actually being received.
+function estimatedScore(p,enemy){
+ const avgHit=p.hit*(1+p.crit*(p.critFactor-1));
+ const dps=avgHit*(1+p.dbl)/(p.interval+.1*p.dbl)*(p.fairy==='Lora'?(1+(20+p.level*10)/500):1);
+ const enHit=enemy.hit*(1+enemy.crit*(enemy.critFactor*(1-p.mira)-1));
+ const enDps=enHit*(1+enemy.dbl)/(enemy.interval+.1*enemy.dbl)*(1-p.block);
+ const ownDps=dps*(1-enemy.block);
+ const healing=Math.min(enDps,Math.max(0,ownDps*p.steal));
+ const net=Math.max(0,enDps-healing);
+ const survive=net?Math.min(10,p.hp/net):10;
+ const timeToKill=enemy.hp/Math.max(1,ownDps);
+ const attackUptime=Math.min(1,survive/Math.max(.1,timeToKill));
+ const sustainFactor=Math.min(1,healing/Math.max(1,enDps));
+ return Math.log1p(ownDps*survive/Math.max(1,enemy.hp))*2+
+  Math.log1p(p.hp/Math.max(1,enDps*10))+
+  Math.min(4,10/Math.max(.1,timeToKill))*.12+
+  // Only a candidate-search tie-breaker: real fights decide the winner.
+  sustainFactor*attackUptime*.25;
+}
+function heuristic(own,build,enemyVals,quality=100){
+ const p=values(own,build,quality);
+ const scores=enemyVals.map(e=>{
+  let score=estimatedScore(p,e);
+  if(p.weapon!==e.weapon){
+   const ownExpected=p.hit*(1+p.crit*(p.critFactor-1))*(1+p.dbl)/Math.max(.4,p.interval+.1*p.dbl);
+   const enemyExpected=e.hit*(1+e.crit*(e.critFactor-1))*(1+e.dbl)/Math.max(.4,e.interval+.1*e.dbl);
+   const rangedAdvantage=p.weapon==='Range'?ownExpected/Math.max(1,e.hp):-(enemyExpected/Math.max(1,p.hp));
+   score+=Math.max(-2,Math.min(2,rangedAdvantage*RANGE_APPROACH_SECONDS))*.45;
+  }
+  return score;
+ });
+ return scores.reduce((a,b)=>a+b,0)/scores.length*.7+Math.min(...scores)*.3;
+}
+function randBuild(){const b=zeroBuild();let n=0;while(n<24){const s=STATS[Math.floor(Math.random()*STATS.length)];if(b[s]<12){b[s]++;n++}}return b}
+function mutate(b){const copy={...b};const from=STATS.filter(s=>copy[s]>0);const f=from[Math.floor(Math.random()*from.length)];const to=STATS.filter(s=>s!==f&&copy[s]<12);const t=to[Math.floor(Math.random()*to.length)];copy[f]--;copy[t]++;return copy}
+function itemize(b){const slots=Object.entries(b).filter(x=>x[1]>0).sort((a,c)=>c[1]-a[1]);const items=Array.from({length:12},()=>[]);for(const [name,n] of slots){for(let i=0;i<n;i++){const candidate=items.filter(item=>item.length<2&&!item.includes(name)).sort((a,c)=>a.length-c.length)[0];if(!candidate)throw Error('Could not distribute substats across items');candidate.push(name)}}if(items.some(x=>x.length!==2))throw Error('Not every item has 2 substats');return items}
+let optimal=null;
+let optimizedScenarios={};
+let activeScenario='current';
+function refreshPvPScenario(){
+ activeScenario=$('pvp-build').value;
+ optimal=optimizedScenarios[activeScenario]?.build??null;
+ $('pvp-build-note').textContent=activeScenario==='current'
+  ? 'Uses the displayed character stats exactly as equipped. You can simulate this without generating a build.'
+  : optimal
+   ? `Uses the generated ${optimizedScenarios[activeScenario].label} build and its estimated roll quality.`
+   : 'Generate fairy builds first to select this option.';
+}
+// Current build: all displayed bonuses are already equipped. Never add new Forge slots.
+function currentEquippedProfile(profile){
+ return {...profile,fixed:{...profile.shown}};
+}
+// Optimized build: retain non-Forge bonuses; replace only the 24 currently equipped Forge rolls.
+function optimizedEquippedProfile(profile){
+ return {...profile,fixed:{...profile.fixed}};
+}
+// Generate candidates containing different Lifesteal slot counts. This is NOT
+// a forced minimum: each candidate must win on its own simulated PvP results.
+function setLifestealSlots(build,target){
+ const b={...build};
+ target=Math.max(0,Math.min(12,target));
+ let diff=target-b['Lifesteal'];
+ if(diff>0){
+  const sources=STATS.filter(s=>s!=='Lifesteal').sort((a,c)=>b[c]-b[a]);
+  for(const stat of sources){const taken=Math.min(diff,b[stat]);b[stat]-=taken;diff-=taken;if(!diff)break;}
+ }else if(diff<0){
+  let remaining=-diff;
+  const targets=STATS.filter(s=>s!=='Lifesteal').sort((a,c)=>b[c]-b[a]);
+  for(const stat of targets){const added=Math.min(remaining,12-b[stat]);b[stat]+=added;remaining-=added;if(!remaining)break;}
+ }
+ b['Lifesteal']=target;
+ return b;
+}
+async function searchBuild(own,enemies,quality,label){
+ const enemyVals=enemies.map(e=>values(e.profile,zeroBuild()));
+ const shortlist=[],seen=new Set();
+ function store(b){
+  const key=STATS.map(s=>b[s]).join(',');if(seen.has(key))return;
+  seen.add(key);
+  const score=heuristic(own,b,enemyVals,quality);
+  shortlist.push({build:{...b},score,key});shortlist.sort((a,c)=>c.score-a.score);
+  if(shortlist.length>32)shortlist.pop();
+ }
+ for(let i=0;i<3500;i++)store(randBuild());
+ for(let start=0;start<14;start++){
+  let b=start===0?{...shortlist[0].build}:randBuild();
+  let score=heuristic(own,b,enemyVals,quality);
+  for(let j=0;j<155;j++){
+   const c=mutate(b),s=heuristic(own,c,enemyVals,quality);
+   if(s>score){b=c;score=s}store(c);
+  }
+  store(b);
+ }
+ // Explore a Lifesteal sweep around the leading candidate. This makes
+ // nonzero-Lifesteal builds visible to the final, real-fight comparison even
+ // when a DPS-heavy heuristic would have screened them out.
+ const candidates=new Map();
+ function include(b){const key=STATS.map(s=>b[s]).join(',');if(!candidates.has(key))candidates.set(key,{build:{...b},key});}
+ for(const c of shortlist.slice(0,20))include(c.build);
+ for(const anchor of shortlist.slice(0,4)){
+  for(let ls=0;ls<=12;ls++)include(setLifestealSlots(anchor.build,ls));
+ }
+ let best=null;
+ const empty=zeroBuild();
+ for(const candidate of candidates.values()){
+  const results=enemies.map(e=>winrate(own,candidate.build,e.profile,empty,110,71,false,quality));
+  const rates=results.map(r=>r.win+r.draw*.3);
+  const average=rates.reduce((a,b)=>a+b,0)/rates.length;
+  const robust=average*.7+Math.min(...rates)*.3;
+  // Only simulated fights determine the final build, not theoretical DPS.
+  if(!best||robust>best.robust)best={...candidate,results,average,robust};
+ }
+ return {...best,label,quality,candidatesTested:candidates.size};
+}
+function scenarioCard(id,scenario,own,enemies){
+ const {build,quality}=scenario;
+ const items=itemize(build);
+ const totalSlots=Object.values(build).reduce((a,b)=>a+b,0);
+ return `<section class="scenario"><h3>${scenario.label}</h3>
+ <div class="grid"><div class="metric"><small>Estimated all-round score (model)</small><strong>${fmt(scenario.robust)} / 100</strong></div>
+ <div class="metric"><small>Allocated Forge slots</small><strong>${totalSlots} / 24</strong></div></div>
+ <p class="muted">Simulated candidates checked: ${scenario.candidatesTested}. Lifesteal allocations from 0–12 slots were considered; none are mandatory.</p>
+ <h3>Substat distribution · estimated bonus per slot</h3>
+ <div class="items">${Object.entries(build).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).map(([name,n])=>`<div><b>${name}</b><br>${n} Slots<br><small>${describeRoll(name,quality)} per slot · ${fmt(n*ROLLS[name]*statQuality(quality,name))}% total</small></div>`).join('')}</div>
+ <h3>Your 12 items</h3><div class="items">${items.map((entry,n)=>`<div><b>Item ${n+1}</b><br>${entry.map(name=>`${name} (${describeRoll(name,quality)})`).join('<br>')}</div>`).join('')}</div>
+ <h3>Synthetic opponents (110 fights each)</h3><div class="items">${enemies.map((e,i)=>`<div><b>${e.name}</b><br>${fmt(scenario.results[i].win)}% WIN<br><small>${fmt(scenario.results[i].draw)}% DRAW</small></div>`).join('')}</div>
+ </section>`;
+}
+async function optimize(){
+ const btn=$('optimize');btn.disabled=true;
+ $('opt-status').textContent='Searching builds for perfect, 80%, and custom rolls…';
+ await new Promise(r=>setTimeout(r,25));
+ try{
+  const own=makeOptimizationProfile();
+  const enemies=profilesForAllround(own);
+  const custom=getCustomQuality();
+  const scenarios=[
+   ['perfect','Perfect rolls (100%)',100],
+   ['realistic','Realistic rolls (80%)',80],
+   ['custom','Custom per-stat roll quality',custom]
+  ];
+  const results={};
+  for(const [key,label,quality] of scenarios){
+   $('opt-status').textContent=`Evaluating ${label}…`;
+   await new Promise(r=>setTimeout(r,25));
+   results[key]=await searchBuild(own,enemies,quality,label);
+  }
+  optimizedScenarios=results;
+  $('opt-result').innerHTML=`<h3>All-round builds for ${own.fairy} Level ${own.level}</h3>
+  <p>All builds use the same reference character and opponent profiles, independent of your equipped stats. The different roll qualities can produce different slot allocations. An 80% roll is an assumption, not a minimum guarantee.</p>
+  ${scenarios.map(([key])=>scenarioCard(key,results[key],own,enemies)).join('')}
+  <p>*Results are estimates from simplified combat rules and synthetic opponents. Per-stat qualities represent an average roll for that stat, not the exact roll on each individual item.</p>`;
+  refreshPvPScenario();
+  $('opt-status').textContent='Three builds generated. Equipment replacement priorities are now available in section 3.';
+ }catch(e){$('opt-status').textContent=e.message;console.error(e)}finally{btn.disabled=false}
+}
+function simulateReal(){
+ const btn=$('pvp');
+ btn.disabled=true;
+ $('pvp-status').textContent='Simulating your current build and the optimized scenarios…';
+ try{
+  const own=makeProfile('own'),enemy=makeProfile('enemy');
+  const playerCurrent=currentEquippedProfile(own);
+  const enemyCurrent=currentEquippedProfile(enemy);
+  const empty=zeroBuild();
+  const options=[{key:'current',label:'My current equipped build',profile:playerCurrent,build:empty,quality:100}];
+  for(const key of ['realistic','perfect','custom']){
+   const scenario=optimizedScenarios[key];
+   if(scenario)options.push({key,label:scenario.label,profile:optimizedEquippedProfile(own),build:scenario.build,quality:scenario.quality});
+  }
+  const records=options.map(option=>{
+   const stats=values(option.profile,option.build,option.quality);
+   const result=winrate(option.profile,option.build,enemyCurrent,empty,1000,91072,true,option.quality);
+   return {...option,stats,result};
+  });
+  const selected=records.find(x=>x.key===activeScenario)||records[0];
+  const current=records[0];
+  const delta=selected.result.win-current.result.win;
+  const note=selected.key==='current'?'This is your actual equipped stat profile, not an optimized 24-slot build.':`Win-rate difference versus your current build: ${delta>=0?'+':''}${fmt(delta)} percentage points (estimated).`;
+  const rows=records.map(r=>{
+   const isSelected=r.key===selected.key;
+   const difference=r.result.win-current.result.win;
+   const deltaText=r.key==='current'?'Baseline':`${difference>=0?'+':''}${fmt(difference)} pp`;
+   return `<tr ${isSelected?'style="background:#244334"':''}><td><b>${r.label}</b>${isSelected?' <span class="pill">Selected</span>':''}</td><td>${fmt(r.result.win)}%</td><td>${fmt(r.result.lose)}%</td><td>${fmt(r.result.draw)}%</td><td>${deltaText}</td></tr>`;
+  }).join('');
+  const approach=selected.result.approach;
+  const approachHtml=approach?`<h3>Range approach · selected build (averages over 1,000 fights)</h3><div class="grid"><div class="metric"><small>Ranged fighter / approach time</small><strong>${approach.rangedFighter==='player'?'You':'Opponent'} / ${fmt(approach.seconds)} s</strong></div><div class="metric"><small>Normal attacks before melee</small><strong>${fmt(approach.normal)}</strong></div><div class="metric"><small>Extra Double Chance hits</small><strong>${fmt(approach.double)}</strong></div><div class="metric"><small>Blocked / landed hits</small><strong>${fmt(approach.blocked)} / ${fmt(approach.landed)}</strong></div><div class="metric"><small>Damage before melee</small><strong>${fmt(approach.damage)}</strong></div></div>`:'';
+  const allZeroForge=STAT_FIELDS.filter(x=>x[2]==='pct').every(([key])=>Math.abs(own.forge[key]||0)<1e-9);
+  const caution=options.length>1&&allZeroForge?'<p class="warning">Warning: All “From current Forge slots” entries are 0. If your character has equipped Forge rolls, fill in their contributions first. Otherwise the recommended builds may double-count your existing bonuses and this comparison is unreliable.</p>':'';
+  $('pvp-result').innerHTML=`<h3>${own.name} vs ${enemy.name}</h3>
+   <p>All options face the same opponent using the same 1,000 simulation seeds. Results are model estimates, not actual game win probabilities.</p>
+   <div style="overflow-x:auto"><table><thead><tr><th>Build</th><th>WIN</th><th>LOSE</th><th>DRAW</th><th>vs current</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <h3>Selected: ${selected.label}</h3><p>${note}</p>
+   <div class="grid"><div class="metric"><small>Estimated win rate</small><strong>${fmt(selected.result.win)}%</strong></div><div class="metric"><small>Selected build HP</small><strong>${fmt(selected.stats.hp)}</strong></div><div class="metric"><small>Opponent current HP</small><strong>${fmt(values(enemyCurrent,empty).hp)}</strong></div><div class="metric"><small>Estimated losses / draws</small><strong>${fmt(selected.result.lose)}% / ${fmt(selected.result.draw)}%</strong></div></div>
+   ${approachHtml}${caution}
+   <p>Current build is calculated from your displayed totals and percentages; optimized builds replace only the Forge contributions entered in your table. Fairy bonuses and the 4-second range approach remain experimental assumptions. Inconclusive fights are DRAW.</p>`;
+  $('pvp-status').textContent=`Compared ${records.length} build${records.length===1?'':'s'} across 1,000 fights each.`;
+ }catch(e){$('pvp-status').textContent=e.message;console.error(e)}finally{btn.disabled=false}
+}
+initialize();renderQualityInputs();$('pvp-build').onchange=refreshPvPScenario;refreshPvPScenario();$('save-own').onclick=showBases;$('own-ocr').onclick=()=>doOcr('own');$('enemy-ocr').onclick=()=>doOcr('enemy');$('optimize').onclick=optimize;$('pvp').onclick=simulateReal;
+
+
+// =============================================================
+// EQUIPMENT SCREENSHOTS / UPGRADE PRIORITIES
+// =============================================================
+let scannedEquipment=[];
+let equipmentSequence=0;
+const escHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const equipmentTypes=['Pet','Mount','Gear','Other'];
+function detectEquipment(raw,fileName=''){
+ const clean=String(raw).replace(/[−–]/g,'-');
+ const lines=clean.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+ const nameLine=lines.find(s=>/\[(?:Ultimate|Legendary|Epic|Rare|Common)\]/i.test(s));
+ const name=nameLine?nameLine.replace(/^[^\[]*/, '').replace(/\s+/g,' ').trim():fileName.replace(/\.[^.]+$/,'');
+ const type=/mounts?|giant bee/i.test(raw)?'Mount':/pets?|treant|electry/i.test(raw)?'Pet':'Pet';
+ const rolls=[];
+ for(const line of lines){
+  // Matches '+37.1% Attack Speed' and 'Attack Speed +37.1%'; flexible whitespace.
+  for(const [stat,regex] of OCR_ALIASES){
+   if(rolls.some(x=>x.name===stat))continue;
+   const m=regex.exec(line);if(!m)continue;
+   const before=line.slice(0,m.index),after=line.slice(m.index+m[0].length);
+   const pct=(after.match(/[+\-]?\s*\d+(?:[.,]\d+)?\s*%/)||before.match(/[+\-]?\s*\d+(?:[.,]\d+)?\s*%/));
+   if(pct){const n=number(pct[0]);if(n!==null){rolls.push({name:stat,value:n});break}}
+  }
+ }
+ return {id:++equipmentSequence,name,type,rolls:rolls.slice(0,2),raw,fileName};
+}
+function createEquipmentRow(item){
+ const div=document.createElement('div');div.className='equipment-entry';div.dataset.itemId=item.id;
+ const opts=STATS.map(s=>`<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+ div.innerHTML=`<div class="item-head"><strong>Item ${item.id}</strong><button type="button" class="secondary remove-item">Remove</button></div>
+ <div class="grid"><label>Item name<input class="item-name" value="${escHtml(item.name)}"></label>
+ <label>Type<select class="item-type">${equipmentTypes.map(x=>`<option ${item.type===x?'selected':''}>${x}</option>`).join('')}</select></label>
+ ${[0,1].map(i=>`<label>Substat ${i+1}<select class="item-stat-${i}"><option value="">Not detected</option>${opts}</select></label>
+ <label>Rolled % ${i+1}<input class="item-roll-${i}" type="number" step="0.1" value="${item.rolls[i]?.value??''}" placeholder="e.g. 37.1"></label>`).join('')}
+ </div>
+ ${item.raw?`<details><summary class="muted">Show extracted screenshot text</summary><pre>${escHtml(item.raw)}</pre></details>`:''}`;
+ [0,1].forEach(i=>div.querySelector(`.item-stat-${i}`).value=item.rolls[i]?.name||'');
+ div.querySelector('.remove-item').onclick=()=>{scannedEquipment=scannedEquipment.filter(x=>x.id!==item.id);div.remove();$('equipment-recommendation').innerHTML=''};
+ $('equipment-list').appendChild(div);
+}
+function addEquipment(item){scannedEquipment.push(item);createEquipmentRow(item)}
+function gatherEquipment(){
+ const out=[];
+ for(const elem of document.querySelectorAll('.equipment-entry')){
+  const raw=scannedEquipment.find(x=>x.id===Number(elem.dataset.itemId));
+  const name=elem.querySelector('.item-name').value.trim()||`Item ${elem.dataset.itemId}`;
+  const type=elem.querySelector('.item-type').value;
+  const rolls=[];
+  for(let i=0;i<2;i++){
+   const stat=elem.querySelector(`.item-stat-${i}`).value;
+   const rawVal=elem.querySelector(`.item-roll-${i}`).value;
+   const val=number(rawVal);
+   if(stat && val!==null)rolls.push({name:stat,value:Math.abs(val)});
+  }
+  if(rolls.length!==2||rolls[0].name===rolls[1].name)throw Error(`${name}: enter two DIFFERENT substats with valid percentages.`);
+  out.push({id:Number(elem.dataset.itemId),name,type,rolls,raw:raw?.raw||''});
+ }
+ if(out.length>12)throw Error('You can compare at most 12 equipped items (24 Forge slots). Remove duplicates / unequipped items.');
+ return out;
+}
+async function scanEquipmentScreens(){
+ const fileInput=$('item-files'),files=[...(fileInput.files||[])];
+ if(!files.length){$('item-status').textContent='Choose one or more screenshots first.';return}
+ const button=$('scan-items');button.disabled=true;
+ try{
+  await loadOcrLibrary();
+  for(let i=0;i<files.length;i++){
+   const file=files[i];$('item-status').textContent=`Reading item ${i+1}/${files.length}…`;
+   const result=await Tesseract.recognize(await prepareImage(file),'eng');
+   addEquipment(detectEquipment(result?.data?.text||'',file.name));
+  }
+  $('item-status').textContent=`Added ${files.length} item(s). Review recognized names, types and rolls.`;
+ }catch(e){$('item-status').textContent='Could not complete image recognition: '+e.message}
+ finally{button.disabled=false;fileInput.value=''}
+}
+function equipmentRollBonus(item){return item.rolls.reduce((o,r)=>{o[r.name]=(o[r.name]||0)+r.value;return o},{})}
+function replacementPriorities(){
+ const status=$('item-analysis-status');
+ try{
+  const equipment=gatherEquipment();
+  const current=equipment; // Pets, mounts and gear all provide two Forge substat slots.
+  if(!current.length)throw Error('Add at least one equipped item, pet or mount.');
+  // This is deliberately independent of the PvP build selector, whose default is "current".
+  const targetKey=$('equipment-build').value;
+  const scenario=optimizedScenarios[targetKey];
+  if(!scenario){
+   throw Error('No generated target build is available. Click "Generate all-round build" in section 2 on this page first.');
+  }
+  const own=makeOptimizationProfile();
+  const targets=itemize(scenario.build);
+  const preferred=$('item-target-quality').value;
+  const targetQuality=preferred==='custom'?scenario.quality:Number(preferred);
+  const enemyProfiles=profilesForAllround(own).map(x=>values(x.profile,zeroBuild()));
+  const actualStats={};
+  current.forEach(item=>item.rolls.forEach(r=>actualStats[r.name]=(actualStats[r.name]||0)+r.value));
+  // Baseline: scanned item's actual rolls only. Unscanned equipment is unknown,
+  // so this is a relative ranking, NOT a global prediction of total DPS or win rate.
+  const score=flat=>{
+   const p=values(own,zeroBuild());
+   const adjusted={...p};
+   // Compute using reference character + percentage roll totals directly.
+   const base=own.baseDmg;
+   const bonus=k=>flat[k]||0;
+   adjusted.hp=own.baseHP*(1+bonus('Health')/100);
+   adjusted.hit=base*(1+bonus('Damage')/100)*(1+bonus(own.weapon==='Range'?'Range Damage':'Melee Damage')/100);
+   if(own.fairy==='Tira')adjusted.hit*=1+(bonus('Health')/10)*(5+own.level*.5)/100;
+   adjusted.crit=Math.min(1,Math.max(0,bonus('Critical Chance')/100));
+   adjusted.critFactor=1+Math.max(0,bonus('Critical Damage')/100);
+   adjusted.block=Math.min(1,Math.max(0,bonus('Block Chance')/100));
+   adjusted.steal=Math.max(0,bonus('Lifesteal')/100);
+   adjusted.dbl=Math.min(1,Math.max(0,bonus('Double Chance')/100));
+   adjusted.interval=attackInterval(bonus('Attack Speed'));
+   adjusted.mira=own.fairy==='Mira'?Math.min(.7,Math.abs(bonus('Skill Cooldown'))/4*(4+own.level*.5)/100):0;
+   const scores=enemyProfiles.map(e=>estimatedScore(adjusted,e));
+   return scores.reduce((a,b)=>a+b,0)/scores.length*.7+Math.min(...scores)*.3;
+  };
+  const baseline=score(actualStats);
+  // Each item's recommended replacement is the target pair yielding the largest
+  // predicted improvement. Do not imply that item order in itemize() is meaningful.
+  const candidates=current.map(item=>{
+   const itemBonuses=equipmentRollBonus(item);
+   const remaining={...actualStats};
+   for(const [key,val] of Object.entries(itemBonuses))remaining[key]=(remaining[key]||0)-val;
+   let best={gain:-Infinity,stats:[],score:0};
+   for(const pair of targets){
+    const replaced={...remaining};
+    const ideal=pair.map(name=>({name,value:ROLLS[name]*statQuality(targetQuality,name)}));
+    for(const stat of ideal)replaced[stat.name]=(replaced[stat.name]||0)+stat.value;
+    const candidateScore=score(replaced);
+    if(candidateScore-baseline>best.gain)best={gain:candidateScore-baseline,stats:ideal,score:candidateScore};
+   }
+   return {...item,gain:best.gain,target:best.stats};
+  }).sort((a,b)=>b.gain-a.gain);
+  const positive=candidates.filter(x=>x.gain>1e-8);
+  $('equipment-recommendation').innerHTML=`<h3>Replacement priorities · ${escHtml(scenario.label)}</h3>
+   <p>Based on ${current.length}/12 scanned equipped items (gear, pets and mounts) and the chosen target fairy build. These are <b>one-item-at-a-time hypothetical upgrades</b> at the chosen target roll quality. The same target pair can appear for multiple items: this is a priority ranking, not a simultaneous final 12-item allocation. Missing items and fixed bonuses are unknown; compare these priorities rather than interpreting the score as a win rate.</p>
+   <div class="items">${candidates.map((item,i)=>`<div><b>${i+1}. ${escHtml(item.name)}</b><br><span class="pill">${escHtml(item.type)}</span><br>
+   <small>Current: ${item.rolls.map(r=>`${escHtml(r.name)} ${fmt(r.value)}%`).join(' + ')}</small><br>
+   <b>Suggested target:</b><br>${item.target.map(r=>`${escHtml(r.name)} ${fmt(r.value)}%`).join(' + ')}<br>
+   <small>${item.gain>1e-8?`Potential model gain +${fmt(item.gain)}`:'No clear improvement at this target quality'}</small></div>`).join('')}</div>
+   <p>${positive.length?`Highest priority: <b>${escHtml(candidates[0].name)}</b>. Keep in mind that item quality, rarity and base stats also matter.`:'No positive one-item swap was identified under these assumptions.'}</p>
+   <p class="warning">The optimizer currently models forged substats, not the item’s intrinsic Damage/Health, rarity or progression costs. Do not discard an equipped item solely on this ranking.</p>`;
+  status.textContent=`Compared ${candidates.length} equipped items against ${scenario.label}.`; 
+ }catch(e){status.textContent=e.message}
+}
+$('scan-items').onclick=scanEquipmentScreens;
+$('add-item').onclick=()=>addEquipment({id:++equipmentSequence,name:'New item',type:'Pet',rolls:[],raw:''});
+$('clear-items').onclick=()=>{scannedEquipment=[];$('equipment-list').innerHTML='';$('equipment-recommendation').innerHTML='';$('item-status').textContent='Cleared.'};
+$('analyze-items').onclick=replacementPriorities;
+
+</script></body></html>
